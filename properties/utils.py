@@ -10,7 +10,7 @@ def get_all_properties():
 
     if not properties:
         print("Cache miss: Fetching from DB...")
-        properties = list(Property.objects.values())
+        properties = Property.objects.all()
         cache.set('all_properties', properties, 3600)  # cache for 1 hour (3600 seconds)
     else:
         print("Cache hit: Retrieved from Redis")
