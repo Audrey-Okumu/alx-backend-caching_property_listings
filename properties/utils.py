@@ -13,35 +13,48 @@ def get_all_properties():
     properties = cache.get('all_properties')
 
     if not properties:
-        print("Cache miss: Fetching from DB...")
-        properties = Property.objects.all()
-        cache.set('all_properties', properties, 3600)  # cache for 1 hour (3600 seconds)
+        logger.info("Cache miss: Fetching from database...")
+        try:
+            properties = Property.objects.all()
+            cache.set('all_properties', properties, 3600)
+        except Exception as e:
+            logger.error(f"Error fetching properties: {e}")
+            properties = []
     else:
-        print("Cache hit: Retrieved from Redis")
+        logger.info("Cache hit: Retrieved from Redis")
 
     return properties
 
-def get_redis_cache_metrics(): #onnects to Redis using your Django settings.
+
+def get_redis_cache_metrics():
     """
     Retrieve Redis cache performance metrics (hits, misses, ratio).
     """
-    # Get a connection to Redis
-    redis_conn = get_redis_connection("default")
-    info = redis_conn.info()  # fetch Redis info dictionary
+    try:
+        redis_conn = get_redis_connection("default")
+        info = redis_conn.info()
 
-    # Extract cache hit/miss statistics
-    hits = info.get("keyspace_hits", 0) #times Redis served from cache.
-    misses = info.get("keyspace_misses", 0) #times Redis didn’t have the data.
+        hits = info.get("keyspace_hits", 0)
+        misses = info.get("keyspace_misses", 0)
+        total_requests = hits + misses
 
-    # Avoid division by zero
-    total = hits + misses   #helps analyze caching efficiency.
-    hit_ratio = (hits / total) if total > 0 else 0
+        #  Required exact pattern
+        hit_ratio = hits / total_requests if total_requests > 0 else 0
 
-    # Log and return metrics
-    logger.info(f"Redis Cache Metrics - Hits: {hits}, Misses: {misses}, Hit Ratio: {hit_ratio:.2f}")
+        logger.info(
+            f"Redis Cache Metrics - Hits: {hits}, Misses: {misses}, Hit Ratio: {hit_ratio:.2f}"
+        )
 
-    return {
-        "hits": hits,
-        "misses": misses,
-        "hit_ratio": round(hit_ratio, 2),
-    }
+        return {
+            "hits": hits,
+            "misses": misses,
+            "hit_ratio": round(hit_ratio, 2),
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving Redis metrics: {e}")
+        return {
+            "hits": 0,
+            "misses": 0,
+            "hit_ratio": 0,
+        }
